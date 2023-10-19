@@ -1,6 +1,8 @@
 import xmlrpc.client
 import sys
 import mysql.connector
+import time
+
 
 
 
@@ -46,7 +48,16 @@ def MO_MarkAsDone(MO_id):
     return MO_done
 
 # Dicionario 
-maquina = {'Torneamento':'TR10', 'Montagem':'MT10', 'Teste':'ET10', 'Usinagem':'CU10'}
+maquina = {'Torno Centur':'TR10', 'Torno': 'TR10', 'Estação Montagem':'MT10', 'Estação Teste':'ET10', 'Centro Usinagem Robodrill':'CU10'}
+
+def nome(dic):
+    for i in dic:
+        palavra = WO_key["workcenter_id"][1]
+        if palavra == i:
+            maq = maquina[i]
+    return maq
+
+
 
 
 running = True
@@ -61,6 +72,7 @@ while running:
     
 
     if not records:
+        time.sleep(20)
         pass
 
     else:
@@ -72,14 +84,45 @@ while running:
                       ['name','workcenter_id','qty_production','qty_producing','qty_produced','working_state','production_state','state','is_produced']}
         records = models.execute_kw(db, uid, password, model_name, 'read', domain, parameters)
         WO_key = records[0]
+        print(WO_key)
+        print(nome(maquina))
 
 
-if WO_key and WO_Status == 0:
-    WO_Start(WO_key[id])
+        # Enviar para o MySql
+        # connectar com o MySql
+        try:
+            #Abrir a conexao com o BD
+            mydb = mysql.connector.connect(
+            host="smarters-db.c50q6rz9ggrg.us-east-1.rds.amazonaws.com",
+            user="navy", password="navy", database="smarters-db-navy" )
+
+            #Executar consulta SQL a partir do cursor
+            mycursor = mydb.cursor()
+            sql = "INSERT INTO wo_to_factory (WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod, Nome_Prod, Nome_MP, NC_Prog, WO_Status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s )"
+            val = (WO_key['id'], key["id"], nome(maquina), 'CURDATE()', WO_key['qty_production'], '','','',0)
+        
+            mycursor.execute(sql, val)
+            mydb.commit()
+            print(mycursor.rowcount, "was inserted.")
+
+        except mysql.connector.Error as error:
+            mydb.rollback
+            print("Failed to run SQL {}".format(error))
+            
+        finally:
+            if mydb.is_connected():
+                mycursor.close()
+                mydb.close()
+                print("MySQL connection is closed")
+        
 
 
-if WO_Status == 1:
-    WO_WriteProduction(WO_key['id'], qty_produced)
+#if WO_key and WO_Status == 0:
+#    WO_Start(WO_key[id])
+#
+#
+#if WO_Status == 1:
+#    WO_WriteProduction(WO_key['id'], qty_produced)
 
 
 
