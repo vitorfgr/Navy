@@ -51,31 +51,31 @@ while running:
 
 # START WO
 #*********
-"""WO_id = 22
-model_name = 'mrp.workorder'
-parameters = {}
-WO_start = models.execute_kw(db, uid, password, model_name, 'button_start', [WO_id], parameters)
-print("Bt WO start:", WO_start)
-
-# WRITE WO (QTY PRODUCED)
-# ***********************
-WO_id = 22
-model_name = 'mrp.workorder'
-WO_write = models.execute_kw(db, uid, password, model_name, 'write', [[WO_id], {'qty_produced': 10}] )
-print("Write WO production:", WO_write)
-
-# STOP WO
-#********
-WO_id = 22
-model_name = 'mrp.workorder'
-parameters = {}
-WO_stop = models.execute_kw(db, uid, password, model_name, 'button_done', [WO_id], parameters)
-print("Bt WO done:", WO_stop)
-
-# MASK MO AS DONE
-#****************
-MO_id = 22
-model_name = 'mrp.production'
-parameters = {}
-MO_done = models.execute_kw(db, uid, password, model_name, 'button_mark_done', [MO_id], parameters)
-print("Bt MO Mark as Done:", MO_done)"""
+#"""WO_id = 22
+#model_name = 'mrp.workorder'
+#parameters = {}
+#WO_start = models.execute_kw(db, uid, password, model_name, 'button_start', [WO_id], parameters)
+#print("Bt WO start:", WO_start)
+#
+## WRITE WO (QTY PRODUCED)
+## ***********************
+#WO_id = 22
+#model_name = 'mrp.workorder'
+#WO_write = models.execute_kw(db, uid, password, model_name, 'write', [[WO_id], {'qty_produced': 10}] )
+#print("Write WO production:", WO_write)
+#
+## STOP WO
+##********
+#WO_id = 22
+#model_name = 'mrp.workorder'
+#parameters = {}
+#WO_stop = models.execute_kw(db, uid, password, model_name, 'button_done', [WO_id], parameters)
+#print("Bt WO done:", WO_stop)
+#
+## MASK MO AS DONE
+##****************
+#MO_id = 22
+#model_name = 'mrp.production'
+#parameters = {}
+#MO_done = models.execute_kw(db, uid, password, model_name, 'button_mark_done', [MO_id], parameters)
+#print("Bt MO Mark as Done:", MO_done)
