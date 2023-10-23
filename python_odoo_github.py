@@ -57,6 +57,87 @@ def nome(dic):
             maq = maquina[i]
     return maq
 
+def input_sql(WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod):
+    try:
+        #Abrir a conexao com o BD
+        mydb = mysql.connector.connect(
+        host="smarters-db.c50q6rz9ggrg.us-east-1.rds.amazonaws.com",
+        user="navy", password="navy", database="smarters-db-navy" )
+
+        #Executar consulta SQL a partir do cursor
+        mycursor = mydb.cursor()
+        sql = "INSERT INTO wo_to_factory (WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod, Nome_Prod, Nome_MP, NC_Prog, WO_Status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s )"
+        val = (WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod, '','','',0)
+    
+        mycursor.execute(sql, val)
+        mydb.commit()
+        print(mycursor.rowcount, "was inserted.")
+
+    except mysql.connector.Error as error:
+        mydb.rollback
+        print("Failed to run SQL {}".format(error))
+        
+    finally:
+        if mydb.is_connected():
+            mycursor.close()
+            mydb.close()
+            print("MySQL connection is closed")
+    return "MySQL connection is closed"
+
+def WO_Status(WO_id):
+    WO_Status = None
+    try:
+        #Abrir a conexao com o BD
+        mydb = mysql.connector.connect(
+        host="smarters-db.c50q6rz9ggrg.us-east-1.rds.amazonaws.com",
+        user="navy", password="navy", database="smarters-db-navy" )
+
+        #Executar consulta SQL a partir do cursor
+        mycursor = mydb.cursor()
+        sql = "SELECT WO_Status FROM wo_to_factory WHERE WO_id = %s"
+        args = (WO_id)
+        mycursor.execute(sql, args)
+
+        #Ler resultado
+        print("Resultados do Select")
+        myresults = mycursor.fetchall()
+        for res in myresults:
+            WO_Status = res[0]
+            print(res[0])
+
+
+    except mysql.connector.Error as error:
+        print("Failed to run SQL {}".format(error))
+    
+    finally:
+        if mydb.is_connected():
+            mycursor.close()
+            mydb.close()
+            print("MySQL connection is closed")
+
+    return WO_Status
+
+def workID(x):
+    lista = []
+    for item in x:
+        lista.append(item['workorder_ids'])
+    
+    for i in lista:
+        r = i
+
+    return r
+
+def ManuID(x):
+    lista = []
+    for item in x:
+        lista.append(item['id'])
+
+    for i in lista:
+        r = i
+
+    return r
+
+
 
 
 
@@ -66,63 +147,43 @@ while running:
 # Search MO - Odoo
 # *********
     model_name = 'mrp.production'
-    domain = [[ ['state', '=', 'confirmed'] ]]
+    domain = [[['state', '=', 'confirmed']]]
     parameters = {'fields': ['name', 'product_id', 'product_qty', 'state', 'components_availability', 'workorder_ids']}
-    records = models.execute_kw(db, uid, password, model_name, 'search_read', domain, parameters)
-    
+    records_p = models.execute_kw(db, uid, password, model_name, 'search_read', domain, parameters)
+    print(records_p)
 
-    if not records:
+    if not records_p:
         time.sleep(20)
         pass
 
     else:
         running = False
-        key = records[0]
+        key = workID(records_p)
         model_name = 'mrp.workorder'
-        domain = [key['id']]
-        parameters = {'fields':
-                      ['name','workcenter_id','qty_production','qty_producing','qty_produced','working_state','production_state','state','is_produced']}
-        records = models.execute_kw(db, uid, password, model_name, 'read', domain, parameters)
-        WO_key = records[0]
-        print(WO_key)
-        print(nome(maquina))
+        for Key in key:
+            domain = [Key]
+            parameters = {'fields':['name', 'workcenter_id', 'qty_production', 'qty_producing', 'qty_produced', 'working_state', 'production_state', 'state', 'is_produced']}
+            records_w = models.execute_kw(db, uid, password, model_name, 'read', domain, parameters)
+            WO_key = records_w[0]
+
+            print(WO_key['id'])
+            print(ManuID(records_p))
+
+            #Enviar 
+            input_sql(WO_key['id'], ManuID(records_p), nome(maquina), 'CURDATE()', WO_key['qty_production'])
 
 
-        # Enviar para o MySql
-        # connectar com o MySql
-        try:
-            #Abrir a conexao com o BD
-            mydb = mysql.connector.connect(
-            host="smarters-db.c50q6rz9ggrg.us-east-1.rds.amazonaws.com",
-            user="navy", password="navy", database="smarters-db-navy" )
-
-            #Executar consulta SQL a partir do cursor
-            mycursor = mydb.cursor()
-            sql = "INSERT INTO wo_to_factory (WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod, Nome_Prod, Nome_MP, NC_Prog, WO_Status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s )"
-            val = (WO_key['id'], key["id"], nome(maquina), 'CURDATE()', WO_key['qty_production'], '','','',0)
-        
-            mycursor.execute(sql, val)
-            mydb.commit()
-            print(mycursor.rowcount, "was inserted.")
-
-        except mysql.connector.Error as error:
-            mydb.rollback
-            print("Failed to run SQL {}".format(error))
-            
-        finally:
-            if mydb.is_connected():
-                mycursor.close()
-                mydb.close()
-                print("MySQL connection is closed")
-        
+        if WO_Status([WO_key['id']]) == 0:
+            print('fabrica')
+            time.sleep(10)
+        if WO_Status([WO_key['id']]) == 1:
+            print('inicio')
+            time.sleep(10)
+        elif WO_Status([WO_key['id']]) == 3:
+            print('pronto')
+            running = True
 
 
-#if WO_key and WO_Status == 0:
-#    WO_Start(WO_key[id])
-#
-#
-#if WO_Status == 1:
-#    WO_WriteProduction(WO_key['id'], qty_produced)
 
 
 
