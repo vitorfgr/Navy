@@ -99,18 +99,18 @@ def WO_Status(WO_id):
         mycursor.execute(sql, args)
 
         #Ler resultado
-        print("Resultados do Select")
+        
         myresults = mycursor.fetchall()
         for res in myresults:
             WO_Status = res[0]
-            print(res[0])
+
 
 
     except mysql.connector.Error as error:
         print("Failed to run SQL {}".format(error))
     
     finally:
-        if mydb.is_connected():
+        if mydb.is_connected() and WO_Status == 3:
             mycursor.close()
             mydb.close()
             print("MySQL connection is closed")
@@ -157,7 +157,6 @@ while running:
         pass
 
     else:
-        running = False
         key = workID(records_p)
         model_name = 'mrp.workorder'
         for Key in key:
@@ -166,31 +165,31 @@ while running:
             records_w = models.execute_kw(db, uid, password, model_name, 'read', domain, parameters)
             WO_key = records_w[0]
 
-            print(WO_key['id'])
-            print(ManuID(records_p))
+            #print(WO_key['id'])
+            #print(ManuID(records_p))
 
             #Enviar 
             input_sql(WO_key['id'], ManuID(records_p), nome(maquina), 'CURDATE()', WO_key['qty_production'])
 
-
-        if WO_Status([WO_key['id']]) == 0:
-            print('fabrica')
-            time.sleep(10)
-        if WO_Status([WO_key['id']]) == 1:
-            print('inicio')
-            time.sleep(10)
-        elif WO_Status([WO_key['id']]) == 3:
-            print('pronto')
-            running = True
-
-
-
-
-
-
-
-        
+            if WO_Status([WO_key['id']]) == 0:
+        #    print('fabrica')
+                rola = True
+                while rola:
+                    if WO_Status([WO_key['id']]) == 0:
+                        print('fabrica')
+                    if WO_Status([WO_key['id']]) == 1:
+                        WO_Start([WO_key['id']])
+                        print("inicio")
+                    if WO_Status([WO_key['id']]) == 3: 
+                        WO_WriteProduction(WO_key['id'], WO_key['qty_produced'])
+                        WO_Done(WO_key['id'])
+                        MO_MarkAsDone(ManuID(records_p))
+                        print("fim")
+                        rola=False
 
 
 
 
+                    
+
+        #MO_MarkAsDone()
