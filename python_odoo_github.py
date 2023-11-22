@@ -25,6 +25,7 @@ if uid == False:
 models = xmlrpc.client.ServerProxy('{}/xmlrpc/2/object'.format(url))
 
 
+
 # Funções para interagir com o sistema ODOO
 def WO_Start(WO_id):
     # Inicia uma ordem de trabalho no ODOO
@@ -57,6 +58,7 @@ maquina = {'Torno Centur': 'TR10', 'Torno': 'TR10', 'Estação Montagem': 'MT10'
 # Função para mapear nomes de máquinas
 def nome(dic):
     for i in dic:
+        WO_key = WO_Odoo(records_p)
         palavra = WO_key["workcenter_id"][1]
         if palavra == i:
             maq = maquina[i]
@@ -75,6 +77,7 @@ def input_sql(WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod):
         #Executar consulta SQL a partir do cursor
         mycursor = mydb.cursor()
         sql = "INSERT INTO wo_to_factory (WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod, Nome_Prod, Nome_MP, NC_Prog, WO_Status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s )"
+        print(sql)
         val = (WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod, '','','',0)
     
         mycursor.execute(sql, val)
@@ -126,6 +129,36 @@ def WO_Status(WO_id):
 
     return WO_Status
 
+def sendoFab():
+    lista_fab = []
+
+    try:
+        #Abrir a conexao com o BD
+        mydb = mysql.connector.connect(
+        host="smarters-db.c50q6rz9ggrg.us-east-1.rds.amazonaws.com",
+        user="navy", password="navy", database="smarters-db-navy" )
+
+        #Executar consulta SQL a partir do cursor
+        mycursor = mydb.cursor()
+        sql = "SELECT MO_id FROM wo_to_factory;"
+        mycursor.execute(sql)
+
+        #Ler resultado
+        myresults = mycursor.fetchall()
+
+        for res in myresults:
+            lista_fab.append(int(res[0]))
+
+    except mysql.connector.Error as error:
+        print("Failed to run SQL {}".format(error))
+    
+    finally:
+        if mydb.is_connected() and WO_Status == 3:
+            mycursor.close()
+            mydb.close()
+
+    return lista_fab
+
 # Função para obter a chave de trabalho
 def workID(x):
     lista = []
@@ -148,6 +181,26 @@ def ManuID(x):
 
     return r
 
+def MO_Odoo():
+    # Pesquisar MO no ODOO
+    model_name = 'mrp.production'
+    domain = [[['state', '=', 'confirmed']]]
+    parameters = {'fields': ['name', 'product_id', 'product_qty', 'state', 'components_availability', 'workorder_ids']}
+    records_p = models.execute_kw(db, uid, password, model_name, 'search_read', domain, parameters)
+
+    return records_p
+
+def WO_Odoo(x):
+    keys = workID(x)
+    model_name = 'mrp.workorder'
+    #for Key in keys:
+    domain = [keys[0]]
+    parameters = {'fields':['name', 'workcenter_id', 'qty_production', 'qty_producing', 'qty_produced', 'working_state', 'production_state', 'state', 'is_produced']}
+    records_w = models.execute_kw(db, uid, password, model_name, 'read', domain, parameters)
+    WO_key = records_w[0]
+    #input_sql(WO_key['id'], ManuID(x), nome(maquina), 'CURDATE()', WO_key['qty_production'])
+    
+    return WO_key
 
 
 
@@ -156,46 +209,28 @@ running = True
 while running:
 
     # Pesquisar MO no ODOO
-    model_name = 'mrp.production'
-    domain = [[['state', '=', 'confirmed']]]
-    parameters = {'fields': ['name', 'product_id', 'product_qty', 'state', 'components_availability', 'workorder_ids']}
-    records_p = models.execute_kw(db, uid, password, model_name, 'search_read', domain, parameters)
+    #model_name = 'mrp.production'
+    #domain = [[['state', '=', 'confirmed']]]
+    #parameters = {'fields': ['name', 'product_id', 'product_qty', 'state', 'components_availability', 'workorder_ids']}
+    #records_p = models.execute_kw(db, uid, password, model_name, 'search_read', domain, parameters)
 
-    if not records_p:
+    records_p = MO_Odoo()
+    print(records_p[0]['id'])
+    print(sendoFab())
+
+
+    if len(records_p) == 0:
         time.sleep(20)
         pass
 
+    # Olha se há algm coisa para implementar no sql
+    if records_p[0]['id'] not in sendoFab():
+        WO_key = WO_Odoo(records_p)
+        input_sql(WO_key['id'], ManuID(records_p), nome(maquina), 'CURDATE()', WO_key['qty_production'])
+
     else:
-        # Pesquisar WO no ODOO
-        key = workID(records_p)
-        model_name = 'mrp.workorder'
-        for Key in key:
-            domain = [Key]
-            parameters = {'fields':['name', 'workcenter_id', 'qty_production', 'qty_producing', 'qty_produced', 'working_state', 'production_state', 'state', 'is_produced']}
-            records_w = models.execute_kw(db, uid, password, model_name, 'read', domain, parameters)
-            WO_key = records_w[0]
+        print("vitor")
+        time.sleep(10)
+        
 
-            #Envia as informações para o ODOO
-            input_sql(WO_key['id'], ManuID(records_p), nome(maquina), 'CURDATE()', WO_key['qty_production'])
 
-            if WO_Status([WO_key['id']]) == 0:
-                status = True
-
-                # Verifica o Status de produção
-                while status:
-                    # Enviado para farbica
-                    if WO_Status([WO_key['id']]) == 0:
-                        print('fabrica')
-
-                    # Iniciou a produção
-                    if WO_Status([WO_key['id']]) == 1:
-                        WO_Start([WO_key['id']])
-                        print("inicio")
-
-                    # Finalizou a produção 
-                    if WO_Status([WO_key['id']]) == 3: 
-                        WO_WriteProduction(WO_key['id'], WO_key['qty_produced'])
-                        WO_Done(WO_key['id'])
-                        MO_MarkAsDone(ManuID(records_p))
-                        print("fim")
-                        status=False
