@@ -226,7 +226,14 @@ while running:
     # Olha se há algm coisa para implementar no sql
     if records_p[0]['id'] not in sendoFab():
         WO_key = WO_Odoo(records_p)
+
+        #verificar maquina que está sendo usada
+        #if WO_key["workcenter_id"][1] not in maquina_em_uso():
         input_sql(WO_key['id'], ManuID(records_p), nome(maquina), 'CURDATE()', WO_key['qty_production'])
+
+        #else:
+        #    print("arroz")
+
 
     else:
         print("vitor")
