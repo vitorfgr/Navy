@@ -58,7 +58,7 @@ maquina = {'Torno Centur': 'TR10', 'Torno': 'TR10', 'Estação Montagem': 'MT10'
 # Função para mapear nomes de máquinas
 def nome(dic):
     for i in dic:
-        WO_key = WO_Odoo(records_p)
+        WO_key = WO_Odoo(records)
         palavra = WO_key["workcenter_id"][1]
         if palavra == i:
             maq = maquina[i]
@@ -99,7 +99,7 @@ def input_sql(WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod):
 # Função para obter o status de uma ordem de trabalho no banco de dados SQL
 def WO_Status(WO_id):
 
-    WO_Status = None
+    Wo_id = []
 
     try:
         #Abrir a conexao com o BD
@@ -111,23 +111,54 @@ def WO_Status(WO_id):
         mycursor = mydb.cursor()
         sql = "SELECT WO_Status FROM wo_to_factory WHERE WO_id = %s"
         args = (WO_id)
-        mycursor.execute(sql, args)
+        mycursor.execute(sql)
 
         #Ler resultado
         myresults = mycursor.fetchall()
-
+        print(myresults)
         for res in myresults:
-            WO_Status = res[0]
+            WO_id.append(int(res[0]))
 
     except mysql.connector.Error as error:
         print("Failed to run SQL {}".format(error))
     
     finally:
-        if mydb.is_connected() and WO_Status == 3:
+        if mydb.is_connected():
             mycursor.close()
             mydb.close()
 
-    return WO_Status
+    return Wo_id
+
+def terminou():
+
+    WO_id = []
+
+    try:
+        #Abrir a conexao com o BD
+        mydb = mysql.connector.connect(
+        host="smarters-db.c50q6rz9ggrg.us-east-1.rds.amazonaws.com",
+        user="navy", password="navy", database="smarters-db-navy" )
+
+        #Executar consulta SQL a partir do cursor
+        mycursor = mydb.cursor()
+        sql = "SELECT WO_id FROM wo_to_factory WHERE WO_Status = 3"
+        mycursor.execute(sql)
+
+        #Ler resultado
+        myresults = mycursor.fetchall()
+        print(myresults)
+        for res in myresults:
+            WO_id.append(int(res[0]))
+
+    except mysql.connector.Error as error:
+        print("Failed to run SQL {}".format(error))
+    
+    finally:
+        if mydb.is_connected():
+            mycursor.close()
+            mydb.close()
+
+    return WO_id
 
 def sendoFab():
     lista_fab = []
@@ -153,7 +184,7 @@ def sendoFab():
         print("Failed to run SQL {}".format(error))
     
     finally:
-        if mydb.is_connected() and WO_Status == 3:
+        if mydb.is_connected():
             mycursor.close()
             mydb.close()
 
@@ -186,9 +217,9 @@ def MO_Odoo():
     model_name = 'mrp.production'
     domain = [[['state', '=', 'confirmed']]]
     parameters = {'fields': ['name', 'product_id', 'product_qty', 'state', 'components_availability', 'workorder_ids']}
-    records_p = models.execute_kw(db, uid, password, model_name, 'search_read', domain, parameters)
-
-    return records_p
+    records = models.execute_kw(db, uid, password, model_name, 'search_read', domain, parameters)
+    print(records)
+    return records
 
 def WO_Odoo(x):
     keys = workID(x)
@@ -208,36 +239,49 @@ def WO_Odoo(x):
 running = True
 while running:
 
-    # Pesquisar MO no ODOO
-    #model_name = 'mrp.production'
-    #domain = [[['state', '=', 'confirmed']]]
-    #parameters = {'fields': ['name', 'product_id', 'product_qty', 'state', 'components_availability', 'workorder_ids']}
-    #records_p = models.execute_kw(db, uid, password, model_name, 'search_read', domain, parameters)
-
-    records_p = MO_Odoo()
-    print(records_p[0]['id'])
-    print(sendoFab())
+    records = MO_Odoo()
 
 
-    if len(records_p) == 0:
-        time.sleep(20)
-        pass
+
 
     # Olha se há algm coisa para implementar no sql
-    if records_p[0]['id'] not in sendoFab():
-        WO_key = WO_Odoo(records_p)
+    if len(records) != 0:
 
-        #verificar maquina que está sendo usada
-        #if WO_key["workcenter_id"][1] not in maquina_em_uso():
-        input_sql(WO_key['id'], ManuID(records_p), nome(maquina), 'CURDATE()', WO_key['qty_production'])
+        for i in records():
 
-        #else:
-        #    print("arroz")
+            #ver se não está sendo fabricada
+            if records[i]['id'] not in sendoFab():
+                WO_key = WO_Odoo(i)
+
+                # Ver se tem alguma maquina disponivel 
+                if WO_key["workcenter_id"] not in maquina_em_uso():
+                    input_sql(WO_key['id'], ManuID(records), nome(maquina), 'CURDATE()', WO_key['qty_production'])
+                
+                else: 
+                    pass
+
+            else:
+                pass
+        
+        for i in terminou():
+
+            #WO_WriteProduction(WO_key['id'], WO_key['qty_produced'])
+            WO_WriteProduction(WO_key['id'], 1)
+            WO_Done(WO_key['id'])
+            MO_MarkAsDone(ManuID(records))
+
+            if WO_Status(i) == 3:
+                #troca3_para_4(i)
+
+            else:
+                break
+
+
 
 
     else:
-        print("vitor")
-        time.sleep(10)
+        time.sleep(20)
+        pass
         
 
 
