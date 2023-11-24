@@ -58,7 +58,7 @@ maquina = {'Torno Centur': 'TR10', 'Torno': 'TR10', 'Estação Montagem': 'MT10'
 # Função para mapear nomes de máquinas
 def nome(dic):
     for i in dic:
-        WO_key = WO_Odoo(records)
+        #WO_key = WO_Odoo(records[i])
         palavra = WO_key["workcenter_id"][1]
         if palavra == i:
             maq = maquina[i]
@@ -77,7 +77,6 @@ def input_sql(WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod):
         #Executar consulta SQL a partir do cursor
         mycursor = mydb.cursor()
         sql = "INSERT INTO wo_to_factory (WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod, Nome_Prod, Nome_MP, NC_Prog, WO_Status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s )"
-        print(sql)
         val = (WO_id, MO_id, Cod_Maq, Date_ToDo, Qtd_Prod, '','','',0)
     
         mycursor.execute(sql, val)
@@ -110,14 +109,14 @@ def WO_Status(WO_id):
         #Executar consulta SQL a partir do cursor
         mycursor = mydb.cursor()
         sql = "SELECT WO_Status FROM wo_to_factory WHERE WO_id = %s"
-        args = (WO_id)
-        mycursor.execute(sql)
+        args = (WO_id,)
+        mycursor.execute(sql, args)
 
         #Ler resultado
         myresults = mycursor.fetchall()
-        print(myresults)
+
         for res in myresults:
-            WO_id.append(int(res[0]))
+            Wo_id.append(int(res[0]))
 
     except mysql.connector.Error as error:
         print("Failed to run SQL {}".format(error))
@@ -129,9 +128,9 @@ def WO_Status(WO_id):
 
     return Wo_id
 
-def terminou():
+def finalizando():
 
-    WO_id = []
+    final = []
 
     try:
         #Abrir a conexao com o BD
@@ -146,9 +145,8 @@ def terminou():
 
         #Ler resultado
         myresults = mycursor.fetchall()
-        print(myresults)
         for res in myresults:
-            WO_id.append(int(res[0]))
+            final.append(int(res[0]))
 
     except mysql.connector.Error as error:
         print("Failed to run SQL {}".format(error))
@@ -158,7 +156,7 @@ def terminou():
             mycursor.close()
             mydb.close()
 
-    return WO_id
+    return final
 
 def sendoFab():
     lista_fab = []
@@ -190,6 +188,63 @@ def sendoFab():
 
     return lista_fab
 
+def concluido(WO_id):
+
+    try:
+        #Abrir a conexao com o BD
+        mydb = mysql.connector.connect(
+        host="smarters-db.c50q6rz9ggrg.us-east-1.rds.amazonaws.com",
+        user="navy", password="navy", database="smarters-db-navy" )
+
+        #Executar consulta SQL a partir do cursor
+        mycursor = mydb.cursor()
+        sql = "UPDATE wo_to_factory SET WO_Status = 4 WHERE WO_id = %s"
+        args = (WO_id,)
+        mycursor.execute(sql,args)
+        mydb.commit()
+
+
+    except mysql.connector.Error as error:
+        print("Failed to run SQL {}".format(error))
+    
+    finally:
+        if mydb.is_connected():
+            mycursor.close()
+            mydb.close()
+
+    return 
+
+def maquina_em_uso():
+
+    maquina = []
+
+    try:
+        #Abrir a conexao com o BD
+        mydb = mysql.connector.connect(
+        host="smarters-db.c50q6rz9ggrg.us-east-1.rds.amazonaws.com",
+        user="navy", password="navy", database="smarters-db-navy" )
+
+        #Executar consulta SQL a partir do cursor
+        mycursor = mydb.cursor()
+        sql = "SELECT Cod_Maq FROM wo_to_factory WHERE WO_Status <= 3"
+        mycursor.execute(sql)
+
+        #Ler resultado
+        myresults = mycursor.fetchall()
+
+        for res in myresults:
+            maquina.append(res[0])
+
+    except mysql.connector.Error as error:
+        print("Failed to run SQL {}".format(error))
+    
+    finally:
+        if mydb.is_connected():
+            mycursor.close()
+            mydb.close()
+
+    return maquina
+
 # Função para obter a chave de trabalho
 def workID(x):
     lista = []
@@ -203,11 +258,8 @@ def workID(x):
 
 # Função para obter o ID da ordem de produção
 def ManuID(x):
-    lista = []
-    for item in x:
-        lista.append(item['id'])
-
-    for i in lista:
+    print(x)
+    for i in x:
         r = i
 
     return r
@@ -218,11 +270,10 @@ def MO_Odoo():
     domain = [[['state', '=', 'confirmed']]]
     parameters = {'fields': ['name', 'product_id', 'product_qty', 'state', 'components_availability', 'workorder_ids']}
     records = models.execute_kw(db, uid, password, model_name, 'search_read', domain, parameters)
-    print(records)
     return records
 
 def WO_Odoo(x):
-    keys = workID(x)
+    keys = workID([x])
     model_name = 'mrp.workorder'
     #for Key in keys:
     domain = [keys[0]]
@@ -232,6 +283,39 @@ def WO_Odoo(x):
     #input_sql(WO_key['id'], ManuID(x), nome(maquina), 'CURDATE()', WO_key['qty_production'])
     
     return WO_key
+
+def search_MO(WO_id):
+    
+    Mo_id = []
+
+    try:
+        #Abrir a conexao com o BD
+        mydb = mysql.connector.connect(
+        host="smarters-db.c50q6rz9ggrg.us-east-1.rds.amazonaws.com",
+        user="navy", password="navy", database="smarters-db-navy" )
+
+        #Executar consulta SQL a partir do cursor
+        mycursor = mydb.cursor()
+        sql = "SELECT MO_id FROM wo_to_factory WHERE WO_Status = %s"
+        args = (WO_id,)
+        mycursor.execute(sql,args)
+
+        #Ler resultado
+        myresults = mycursor.fetchall()
+
+        for res in myresults:
+            Mo_id.append(int(res[0]))
+
+    except mysql.connector.Error as error:
+        print("Failed to run SQL {}".format(error))
+    
+    finally:
+        if mydb.is_connected():
+            mycursor.close()
+            mydb.close()
+
+    return Mo_id
+
 
 
 
@@ -243,19 +327,17 @@ while running:
 
 
 
-
     # Olha se há algm coisa para implementar no sql
     if len(records) != 0:
-
-        for i in records():
+        print(records[0])
+        for i in range(len(records)):
 
             #ver se não está sendo fabricada
             if records[i]['id'] not in sendoFab():
-                WO_key = WO_Odoo(i)
-
+                WO_key = WO_Odoo(records[i])
                 # Ver se tem alguma maquina disponivel 
                 if WO_key["workcenter_id"] not in maquina_em_uso():
-                    input_sql(WO_key['id'], ManuID(records), nome(maquina), 'CURDATE()', WO_key['qty_production'])
+                    input_sql(WO_key['id'], records[i]['id'], nome(maquina), 'CURDATE()', WO_key['qty_production'])
                 
                 else: 
                     pass
@@ -263,19 +345,19 @@ while running:
             else:
                 pass
         
-        for i in terminou():
+    for i in finalizando():
 
+        if WO_Status(i)[0] == 3:
+            print(i)
             #WO_WriteProduction(WO_key['id'], WO_key['qty_produced'])
-            WO_WriteProduction(WO_key['id'], 1)
-            WO_Done(WO_key['id'])
-            MO_MarkAsDone(ManuID(records))
+            WO_WriteProduction(i, 1)
+            WO_Done(i)
+            MO_MarkAsDone(ManuID(search_MO(i)))
+            concluido(i)
 
-            if WO_Status(i) == 3:
-                #troca3_para_4(i)
 
-            else:
-                break
-
+        else:
+            break
 
 
 
