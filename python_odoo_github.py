@@ -248,8 +248,8 @@ def maquina_em_uso():
 # Função para obter a chave de trabalho
 def workID(x):
     lista = []
-    for item in x:
-        lista.append(item['workorder_ids'])
+    print(x['workorder_ids'][0])
+    lista.append(x['workorder_ids'][0])
     
     for i in lista:
         r = i
@@ -273,10 +273,11 @@ def MO_Odoo():
     return records
 
 def WO_Odoo(x):
-    keys = workID([x])
+    keys = workID(x)
+    print(keys)
     model_name = 'mrp.workorder'
     #for Key in keys:
-    domain = [keys[0]]
+    domain = [keys]
     parameters = {'fields':['name', 'workcenter_id', 'qty_production', 'qty_producing', 'qty_produced', 'working_state', 'production_state', 'state', 'is_produced']}
     records_w = models.execute_kw(db, uid, password, model_name, 'read', domain, parameters)
     WO_key = records_w[0]
@@ -296,9 +297,9 @@ def search_MO(WO_id):
 
         #Executar consulta SQL a partir do cursor
         mycursor = mydb.cursor()
-        sql = "SELECT MO_id FROM wo_to_factory WHERE WO_Status = %s"
+        sql = "SELECT MO_id FROM wo_to_factory WHERE WO_Status = 3 and WO_id = %s"
         args = (WO_id,)
-        mycursor.execute(sql,args)
+        mycursor.execute(sql, args)
 
         #Ler resultado
         myresults = mycursor.fetchall()
@@ -334,6 +335,7 @@ while running:
 
             #ver se não está sendo fabricada
             if records[i]['id'] not in sendoFab():
+                print(records[i])
                 WO_key = WO_Odoo(records[i])
                 # Ver se tem alguma maquina disponivel 
                 if WO_key["workcenter_id"] not in maquina_em_uso():
@@ -347,11 +349,16 @@ while running:
         
     for i in finalizando():
 
+        print(WO_Status(i)[0])
+
         if WO_Status(i)[0] == 3:
             print(i)
             #WO_WriteProduction(WO_key['id'], WO_key['qty_produced'])
             WO_WriteProduction(i, 1)
             WO_Done(i)
+
+            print("vitor:", search_MO(i))
+
             MO_MarkAsDone(ManuID(search_MO(i)))
             concluido(i)
 
